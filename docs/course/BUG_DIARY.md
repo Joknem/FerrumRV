@@ -9,7 +9,16 @@
 - Fix: 学生亲手改回 println!；教师读取源码并运行 cargo build、cargo test，均成功退出，测试用例数为 0。
 - What I learned: 学生已确认 could not compile 表明编译失败，测试用例尚未执行；在教师讲解后确认测试程序成功运行但零用例不能验证 Hello world 的输出行为。
 
-## 记录模板
+## Milestone 2.1：多字节写入检查顺序与错误丢弃
+
+- Symptom: 早期实现可能在跨界写入时只修改部分字节，忽略子写入 Err 后还返回 Ok。
+- Wrong hypothesis: 先逐字节写入、遇错返回即可满足失败时内存不变；后经讨论纠正。
+- Observation: 教师源码推演末尾跨界与起点前跨入 RAM 的例子；未对旧实现运行故障注入。学生随后加入完整错误及每次失败后整块内存比较的自动测试。
+- Root cause: 全范围检查晚于第一次写入，且最初丢弃 wbyte 返回的 Result。
+- Fix: 学生预先检查地址溢出和上界，利用首个子写入在修改前检查下界；传播或转换错误；最终各宽度失败状态保持测试通过。
+- What I learned: 学生解释 ? 只提前返回，不撤销之前的修改；错误元数据应描述外层原始请求。
+
+## 后续记录模板
 
 - Symptom:
 - Wrong hypothesis:
