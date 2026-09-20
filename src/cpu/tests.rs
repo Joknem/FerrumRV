@@ -56,3 +56,79 @@ fn fetch_test() {
         })
     );
 }
+
+#[test]
+fn inst_test() {
+    let addi = Inst::Addi {
+        rs1: 6,
+        imm: -3,
+        rd: 5,
+    };
+    match addi {
+        Inst::Addi { rs1, imm, rd } => {
+            assert_eq!(rs1, 6);
+            assert_eq!(imm, -3);
+            assert_eq!(rd, 5);
+        }
+    }
+    use super::DecodeError;
+    use super::Inst;
+    use super::decode;
+    assert_eq!(
+        decode(0x00330293),
+        Ok(Inst::Addi {
+            rs1: 6,
+            imm: 3,
+            rd: 5
+        })
+    );
+    assert_eq!(
+        decode(0x00330280),
+        Err(DecodeError::UnsupportedInst { raw: 0x00330280 })
+    );
+    assert_eq!(
+        decode(0x00331293),
+        Err(DecodeError::UnsupportedInst { raw: 0x00331293 })
+    );
+    assert_eq!(
+        decode(0x000f8013),
+        Ok(Inst::Addi {
+            rs1: 31,
+            imm: 0,
+            rd: 0
+        })
+    );
+    assert_eq!(
+        decode(0x7ff00f93),
+        Ok(Inst::Addi {
+            rs1: 0,
+            imm: 2047,
+            rd: 31
+        })
+    );
+    println!("{:?}", decode(0x7ff00f93));
+    assert_eq!(
+        decode(0xffd30293),
+        Ok(Inst::Addi {
+            rs1: 6,
+            imm: -3,
+            rd: 5
+        })
+    );
+    assert_eq!(
+        decode(0xfff30293),
+        Ok(Inst::Addi {
+            rs1: 6,
+            imm: -1,
+            rd: 5
+        })
+    );
+    assert_eq!(
+        decode(0x80030293),
+        Ok(Inst::Addi {
+            rs1: 6,
+            imm: -2048,
+            rd: 5
+        })
+    );
+}

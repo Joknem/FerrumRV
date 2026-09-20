@@ -4,11 +4,41 @@
 - Teaching Mode：ON
 - 当前 Phase：A
 - 当前 Chapter：3
-- 当前 Milestone：3.1 — 内部指令表示
-- 已通过 milestone：0.1、0.2、1.1、1.2、2.1、2.2
-- 当前状态：Chapter 2 验收通过，3.1 已解锁；Chapter 2 收尾提交待学生完成。
-- 当前待验收项：学生设计内部指令表示；尚未开始实现。
-- 下一目标：从 ADDI 的操作、操作数与立即数讨论需要保存的信息，再按需讲解 enum 语法。
+- 当前 Milestone：3.3 — 符号扩展
+- 已通过 milestone：0.1、0.2、1.1、1.2、2.1、2.2、3.1、3.2、3.3
+- 当前状态：Chapter 3 验收通过；七个测试与格式检查通过，无测试编译警告；课程记录已更新。
+- 当前待验收项：本章无；待学生完成 Chapter 3 收尾提交。
+- 下一目标：Milestone 4.1 ADDI execute 已解锁，尚未开始实现。
+
+## Milestone 3.3 学习记录
+
+- PASS：学生独立解释 u32 右移补零、i32 右移补符号位；教师补充移位后再转换不会恢复十二位符号扩展。负数用例、两端边界、错误路径与既有功能回归通过，能根据断言区分机器码错误与符号扩展错误，五级验收完成。
+
+- 学生先修正负数测试机器码的 opcode/rs1/funct3 错误，再用 0xffd30293 复现实际 imm=4093、预期 imm=-3 的失败。
+- 学生确认应先转为 i32 再右移，亲手改为 raw as i32 >> 20；负数 -3 与已有正数用例回归通过。
+- 边界：0xfff30293 解码 imm=-1，0x80030293 解码 imm=-2048；rs1=6、rd=5 均正确，已有 0、2047 用例保留。
+- 最新验证：cargo test 七个测试通过，cargo fmt --check 通过，无测试编译警告；章末解释已通过。
+
+## Milestone 3.2 学习记录
+
+- PASS：正常解码、寄存器 0/31 与立即数 0/2047 边界、独立错误 opcode/funct3 均通过；学生手工编码与提取字段，修正类型及返回值问题，旧测试无回归。
+- 可读输出：cargo test -- --nocapture 显示 Ok(Addi { rs1: 0, imm: 2047, rd: 31 })。共享状态不参与解码，无借用规避或 unsafe。
+
+- 学生手工编码 addi x5,x6,3 得到 0x00330293，并写出 opcode、rd、funct3、rs1、imm 的移位与掩码表达式。
+- 学生选择 Result 与自定义 DecodeError::UnsupportedInst { raw: u32 }；地址由后续调用者补充，不作为解码输入。
+- 当前接口为 impl Cpu 外的私有普通函数 decode(raw: u32) -> Result<Inst, DecodeError>，不依赖 CPU 状态。Inst::Addi 字段现命名为 rs1、imm、rd。
+- 最新检查：cargo test 七个测试通过，cargo fmt --check 通过，无测试编译警告。inst_test 已实际调用 decode：0x00330293 返回预期 Addi；0x00330280（仅 opcode 改为零）、0x00331293（仅 funct3 改为 001）返回保留原始机器码的 UnsupportedInst；0x000f8013、0x7ff00f93 覆盖字段边界。
+- 学生已修正寄存器字段 u32/u8 类型差异、match 返回值及穷尽分支；imm 暂用 (raw >> 20) as i32，只正确解释非负立即数，符号扩展尚未实现。
+
+## Milestone 3.1 学习记录
+
+- 验收收尾：学生正确区分 u8 可表示 32 与寄存器编号 32 不合法；结合构造拆解练习、源/目标纠错及七个测试回归，3.1 通过。
+
+- 学生选择 Inst 枚举，Addi 携带 sreg: u8、imm: i32、dreg: u8；寄存器保存编号，执行时才读取其值。
+- 已讲解 enum 构造、match 拆解及穷尽匹配；学生纠正 ADDI 源/目标寄存器填反的问题。
+- inst_test 构造 addi x5,x6,-3 并拆解断言三个字段；本测试是语法练习，不证明机器码解码正确。
+- 应学生请求补充 for、while、loop 及元组；学生在 main 中用 for 累加 [3,7,9]，教师运行确认输出 19。
+- 最新验证：cargo test 七个测试通过，无测试编译警告；cargo fmt --check 通过。没有添加核心实现或替学生编写测试。
 
 ## Milestone 2.2 验收记录
 

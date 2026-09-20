@@ -58,6 +58,15 @@
 - Reason: 共享借用表达只读行为；各模块测试可检查本模块私有状态，CPU 测试通过 Memory 接口准备数据。
 - Trade-off: 当前字段无内部可变性，状态不变由类型约束和审查确认，无需在 Fetch 测试重复完整内存验证。PC 四字节对齐仍由调用者保证，运行时检查尚未实现。
 
+## Chapter 3：指令表示与解码
+
+- Decision: 解码独立于 CPU 状态，以 Result 返回内部指令或不支持的机器码。
+- Context: 当前只支持 RV32I ADDI，执行阶段尚未实现。
+- Options: 解码读取 CPU 或只接收机器码；错误包含地址或由调用者补充地址。
+- Choice: decode(raw: u32) -> Result<Inst, DecodeError>；Inst::Addi 保存 rs1/rd: u8、imm: i32；UnsupportedInst 保存原始 raw。opcode/funct3 使用 const 命名常量。
+- Reason: 解码保存寄存器编号，执行时才读取寄存器值；同时检查 opcode 和 funct3；错误不依赖 CPU，调用者负责地址上下文。
+- Trade-off: u8 本身不保证编号小于 32，解码通过五位掩码保证范围；立即数先将 raw 转为 i32 再右移完成符号扩展，此方法依赖当前 I-type 立即数位于最高十二位的布局。
+
 ## 后续决策模板
 
 - Decision:
