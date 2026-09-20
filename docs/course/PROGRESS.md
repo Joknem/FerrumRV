@@ -1,14 +1,34 @@
 # FerrumRV 课程进度
 
-- 更新日期：2026-09-19
+- 更新日期：2026-09-20
 - Teaching Mode：ON
 - 当前 Phase：A
-- 当前 Chapter：2
-- 当前 Milestone：2.1 — Memory
-- 已通过 milestone：0.1、0.2、1.1、1.2、2.1
-- 当前状态：2.1 PASS，等待学生小步提交；Chapter 2 尚未结束。
-- 当前待验收项：2.1 无；2.2 尚未开始。
-- 下一目标：提交 Memory 实现；2.2 Fetch 已解锁。
+- 当前 Chapter：3
+- 当前 Milestone：3.1 — 内部指令表示
+- 已通过 milestone：0.1、0.2、1.1、1.2、2.1、2.2
+- 当前状态：Chapter 2 验收通过，3.1 已解锁；Chapter 2 收尾提交待学生完成。
+- 当前待验收项：学生设计内部指令表示；尚未开始实现。
+- 下一目标：从 ADDI 的操作、操作数与立即数讨论需要保存的信息，再按需讲解 enum 语法。
+
+## Milestone 2.2 验收记录
+
+- PASS / Works：fetch 使用当前 PC 调用 Memory::read_word，返回原始 u32 或 AddrError。
+- Tested：两个不同 PC 的已知模式、最后合法起点、越界请求原始地址及长度均验证通过。
+- Explained：学生解释低地址保存低有效字节；教师补充字节序列由 read_word 按小端规则组合成 Rust u32，章末解释题通过。
+- Debuggable：通过准备数据的 Result 断言、取指期望值与错误字段断言区分准备失败、取值错误和错误传播问题；本章失败写入不回滚的问题已由学生解释并记录于 Bug 日记。
+- Integrated：cargo test 六个测试通过且无警告，cargo fmt --check、cargo build 通过。普通构建有四组 dead_code 警告，因为 main 尚未使用 CPU/Memory，不阻塞本步验收。
+- Rust 质量：共享借用合理，无 clone、unsafe 或 unwrap 绕过；不要求重复 Memory 单元测试。取指对齐仍是调用者前提，未实现运行时对齐检查。
+
+## Milestone 2.2 学习记录
+
+- 当前组织：main.rs 声明 cpu、memory；实现位于 cpu.rs、memory.rs，测试在 cpu/tests.rs、memory/tests.rs，由 #[cfg(test)] mod tests 加载。
+- 学生提出文件拆分需求后，已讲解 mod 建立模块树、crate/super 路径、use 引入名字、pub(crate)/pub 可见性与 derive 能力。代码与测试均由学生移动。
+- 最新回归：六个测试通过，cargo fmt --check 通过。取指测试覆盖两个正常 PC、最后合法起点 0x8000000c、越界 PC=0x80000010 的原始地址与长度 4；准备数据的写入 Result 均已检查。
+- 学生指出重复验证 Memory 的冗余，调整验收：不在 CPU 测试重做内存读写测试或逐项内存快照。当前 fetch 使用 &self、&Memory，相关字段无内部可变性，状态不变结合类型约束与代码审查确认；已有 PC 和寄存器断言保留即可。
+
+- 起点：教师读取当前代码和教案；最近 5 个测试、格式检查通过，本次开章未重复运行。
+- 本步只取原始 32 位值，不解码、不执行、不更新 PC；继续沿用第一版取指 PC 需 4 字节对齐的契约。
+- 验收范围：已知内存模式与取指结果一致；选择不同 PC 验证使用当前地址；边界和错误传播明确；状态不变由当前共享借用接口及实现确认。
 
 ## Milestone 2.1 验收记录
 

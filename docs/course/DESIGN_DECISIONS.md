@@ -49,6 +49,15 @@
 - Reason: 成功值零与访问失败可明确区分；外部错误含义不依赖内部如何拆分读取。
 - Trade-off: 当前只保证固定非空 RAM 配置；普通数据访问允许非对齐地址，取指对齐另行规定。失败写入须保持整块内存不变，? 或 match 提前返回本身不会回滚状态。
 
+## Chapter 2：Fetch 与模块边界
+
+- Decision: fetch 只使用当前 PC 读取原始 32 位值；CPU、Memory 与其测试分文件组织。
+- Context: 尚未解码或执行，取指不推进 PC。
+- Options: 共享借用或可变借用内存；集中测试或各模块子测试。
+- Choice: fetch(&self, &Memory) -> Result<u32, AddrError>；调用 read_word 并保留错误。Memory 的必要跨模块接口使用 pub(crate)，字段保持私有。
+- Reason: 共享借用表达只读行为；各模块测试可检查本模块私有状态，CPU 测试通过 Memory 接口准备数据。
+- Trade-off: 当前字段无内部可变性，状态不变由类型约束和审查确认，无需在 Fetch 测试重复完整内存验证。PC 四字节对齐仍由调用者保证，运行时检查尚未实现。
+
 ## 后续决策模板
 
 - Decision:
