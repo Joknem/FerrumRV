@@ -67,6 +67,15 @@
 - Reason: 解码保存寄存器编号，执行时才读取寄存器值；同时检查 opcode 和 funct3；错误不依赖 CPU，调用者负责地址上下文。
 - Trade-off: u8 本身不保证编号小于 32，解码通过五位掩码保证范围；立即数先将 raw 转为 i32 再右移完成符号扩展，此方法依赖当前 I-type 立即数位于最高十二位的布局。
 
+## Milestone 4.1：执行与单步错误
+
+- Decision: execute 修改 CPU，step 串联取指、解码和执行并增加错误上下文。
+- Context: 仅支持 ADDI，尚未实现 guest 停止行为。
+- Options: 各层各自更新 PC 或统一由执行阶段更新；错误丢失底层原因或包装保留。
+- Choice: execute 使用 wrapping_add 计算和推进 PC，复用 wreg 保护 x0；step 仅在取指与解码成功后调用 execute，失败返回 StepError::Fetch/Decode，保存 PC 和底层错误。
+- Reason: 防止重复推进 PC；前两阶段只读，因此失败前没有 CPU 写入，不需要回滚。
+- Trade-off: 当前 execute 接收合法解码结果，step 以前置条件要求 CPU 未停止且 PC 对齐；后续扩展指令或错误阶段时需重新审视状态更新顺序。
+
 ## 后续决策模板
 
 - Decision:

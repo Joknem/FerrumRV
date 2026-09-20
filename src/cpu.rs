@@ -30,6 +30,38 @@ impl Cpu {
         let inst = memory.read_word(pc);
         return inst;
     }
+    fn execute(&mut self, inst: Inst) -> () {
+        match inst {
+            Inst::Addi { rs1, imm, rd } => {
+                let rs1_value = self.rreg(rs1 as usize);
+                let cal_value = (imm as u32).wrapping_add(rs1_value);
+                self.wreg(rd as usize, cal_value);
+                self.pc = self.pc.wrapping_add(4);
+            }
+        }
+    }
+    fn step(&mut self, mem: &Memory) -> Result<(), StepError> {
+        let fetched_raw = match self.fetch(mem) {
+            Ok(value) => value,
+            Err(err) => {
+                return Err(StepError::Fetch {
+                    pc: self.pc,
+                    addr_error: err,
+                });
+            }
+        };
+        let inst = match decode(fetched_raw) {
+            Ok(value) => value,
+            Err(err) => {
+                return Err(StepError::Decode {
+                    pc: self.pc,
+                    decode_error: err,
+                });
+            }
+        };
+        self.execute(inst);
+        Ok(())
+    }
 }
 
 fn decode(raw: u32) -> Result<Inst, DecodeError> {
@@ -57,5 +89,12 @@ enum Inst {
 enum DecodeError {
     UnsupportedInst { raw: u32 },
 }
+
+#[derive(Debug, PartialEq)]
+enum StepError {
+    Fetch { pc: u32, addr_error: AddrError },
+    Decode { pc: u32, decode_error: DecodeError },
+}
+
 #[cfg(test)]
 mod tests;
