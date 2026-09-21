@@ -38,7 +38,7 @@ fn reg_write_example() {
 
 #[test]
 fn fetch_test() {
-    let mut mem = Memory::new();
+    let mut mem = Memory::new(16);
     assert_eq!(mem.write_word(0x80000000, 0x12345678), Ok(()));
     assert_eq!(mem.write_word(0x80000004, 0xaabbccdd), Ok(()));
     let cpu1 = Cpu::new(0x80000000);
@@ -73,6 +73,7 @@ fn inst_test() {
             assert_eq!(imm, -3);
             assert_eq!(rd, 5);
         }
+        _ => todo!(),
     }
     assert_eq!(
         decode(0x00330293),
@@ -132,7 +133,6 @@ fn inst_test() {
         })
     );
 }
-
 #[test]
 fn execute_test() {
     let mut cpu = Cpu::new(0x80000000);
@@ -186,7 +186,7 @@ fn execute_test() {
 #[test]
 fn step_test() {
     let mut cpu = Cpu::new(0x80000000);
-    let mut mem = Memory::new();
+    let mut mem = Memory::new(16);
     cpu.wreg(6, 10);
     assert_eq!(mem.write_word(0x80000000, 0xffd30293), Ok(()));
     assert_eq!(cpu.step(&mem), Ok(()));
@@ -229,7 +229,7 @@ fn step_test() {
 #[test]
 fn step_3_test() {
     let mut cpu = Cpu::new(0x80000000);
-    let mut mem = Memory::new();
+    let mut mem = Memory::new(16);
     assert_eq!(mem.write_word(0x80000000, 0x00a00093), Ok(()));
     assert_eq!(mem.write_word(0x80000004, 0x01400113), Ok(()));
     assert_eq!(mem.write_word(0x80000008, 0xffd08113), Ok(()));
@@ -247,4 +247,93 @@ fn step_3_test() {
     assert_eq!(cpu.rreg(2), 7);
     assert_eq!(cpu.regs[0], 0);
     assert_eq!(cpu.halted, false);
+}
+
+#[test]
+fn add_sub_test() {
+    let init_pc = 0x80000000;
+    let mut cpu = Cpu::new(init_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 10);
+    cpu.wreg(7, 20);
+    assert_eq!(mem.write_word(init_pc, 0x007302b3), Ok(()));
+    assert_eq!(cpu.step(&mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 30);
+
+    assert_eq!(mem.write_word(init_pc + 4, 0x407302b3), Ok(()));
+    assert_eq!(cpu.step(&mem), Ok(()));
+    assert_eq!((cpu.rreg(5)) as i32, -10);
+
+    cpu.wreg(31, 1000);
+    cpu.wreg(1, 20);
+    assert_eq!(mem.write_word(init_pc + 8, 0x001f8fb3), Ok(()));
+    assert_eq!(cpu.step(&mem), Ok(()));
+    assert_eq!(cpu.rreg(31), 1020);
+
+    assert_eq!(mem.write_word(init_pc + 12, 0x41f08fb3), Ok(()));
+    assert_eq!(cpu.step(&mem), Ok(()));
+    assert_eq!(cpu.rreg(31) as i32, -1000);
+
+    assert_eq!(mem.write_word(init_pc + 16, 0x00730033), Ok(()));
+    assert_eq!(cpu.step(&mem), Ok(()));
+    assert_eq!(cpu.rreg(6), 10);
+    assert_eq!(cpu.rreg(7), 20);
+    assert_eq!(cpu.rreg(0), 0);
+    assert_eq!(cpu.pc, init_pc + 20);
+    assert_eq!(cpu.halted, false);
+
+    assert_eq!(mem.write_word(init_pc + 20, 0x40730033), Ok(()));
+    assert_eq!(cpu.step(&mem), Ok(()));
+    assert_eq!(cpu.rreg(6), 10);
+    assert_eq!(cpu.rreg(7), 20);
+    assert_eq!(cpu.rreg(0), 0);
+    assert_eq!(cpu.pc, init_pc + 24);
+    assert_eq!(cpu.halted, false);
+
+    cpu.wreg(6, 0xffffffff);
+    cpu.wreg(7, 1);
+    assert_eq!(mem.write_word(init_pc + 24, 0x007302b3), Ok(()));
+    assert_eq!(cpu.step(&mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0);
+
+    cpu.wreg(6, 0);
+    cpu.wreg(7, 1);
+    assert_eq!(mem.write_word(init_pc + 28, 0x407302b3), Ok(()));
+    assert_eq!(cpu.step(&mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xffffffff);
+
+    assert_eq!(mem.write_word(init_pc + 32, 0x007312b3), Ok(()));
+    assert_eq!(
+        cpu.step(&mem),
+        Err(StepError::Decode {
+            pc: init_pc + 32,
+            decode_error: DecodeError::UnsupportedInst { raw: 0x007312b3 }
+        })
+    );
+
+    assert_eq!(mem.write_word(init_pc + 32, 0x027302b3), Ok(()));
+    assert_eq!(
+        cpu.step(&mem),
+        Err(StepError::Decode {
+            pc: init_pc + 32,
+            decode_error: DecodeError::UnsupportedInst { raw: 0x027302b3 }
+        })
+    );
+
+    let mut cpu1 = Cpu::new(init_pc + 24);
+    assert_eq!(mem.write_word(init_pc + 24, 0x00a00093), Ok(()));
+    assert_eq!(mem.write_word(init_pc + 28, 0x00300113), Ok(()));
+    assert_eq!(mem.write_word(init_pc + 32, 0x002081b3), Ok(()));
+    assert_eq!(mem.write_word(init_pc + 36, 0x402181b3), Ok(()));
+    let expected_x3 = [0, 0, 13, 10];
+    for i in 0..4 {
+        assert_eq!(cpu1.step(&mem), Ok(()));
+        assert_eq!(cpu1.halted, false);
+        assert_eq!(cpu1.pc, 0x8000001c + 4 * i);
+        assert_eq!(cpu1.rreg(3), expected_x3[i as usize]);
+    }
+    assert_eq!(cpu1.rreg(1), 10);
+    assert_eq!(cpu1.rreg(2), 3);
+    assert_eq!(cpu1.rreg(3), 10);
+    assert_eq!(cpu1.rreg(0), 0);
 }

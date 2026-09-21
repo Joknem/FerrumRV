@@ -76,6 +76,15 @@
 - Reason: 防止重复推进 PC；前两阶段只读，因此失败前没有 CPU 写入，不需要回滚。
 - Trade-off: 当前 execute 接收合法解码结果，step 以前置条件要求 CPU 未停止且 PC 对齐；后续扩展指令或错误阶段时需重新审视状态更新顺序。
 
+## Milestone 4.2：R-type 与可配置 RAM 容量
+
+- Decision: 增加 ADD/SUB；RAM 容量由实例构造参数指定。
+- Context: R-type 使用两个源寄存器；新增测试需要较大内存，而旧边界测试依赖16字节布局。
+- Options: 全局扩容并重写旧预期；或每个实例选择容量。
+- Choice: Memory::new(size: usize)，base_addr 仍为 0x80000000；旧测试传16，新 ADD/SUB 测试传256。OP 解码检查完整 funct7/funct3；执行读取两个源后 wrapping_add/sub，再由 wreg 写回并推进 PC。
+- Reason: 保持旧测试有效，独立控制新测试容量；寄存器存储32位位模式，SUB 无需将寄存器改为有符号类型。
+- Trade-off: 当前约定容量非零且映射不跨地址空间末端；尚未把这些前提转换为构造错误检查。不支持的 OP 编码返回错误，不能保留 todo! 导致 host panic。
+
 ## 后续决策模板
 
 - Decision:

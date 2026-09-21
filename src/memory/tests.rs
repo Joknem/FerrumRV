@@ -2,7 +2,7 @@ use super::{AddrError, Memory};
 
 #[test]
 fn mem_wr_byte_test() {
-    let mut memory = Memory::new();
+    let mut memory = Memory::new(16);
     assert_eq!(
         memory.rbyte(0x7fffffff),
         Err(AddrError::InvalidRange {
@@ -49,7 +49,7 @@ fn mem_wr_byte_test() {
 
 #[test]
 fn mem_wr_u16_test() {
-    let mut memory = Memory::new();
+    let mut memory = Memory::new(16);
     assert_eq!(memory.wbyte(0x80000001, 0x34), Ok(()));
     assert_eq!(memory.wbyte(0x80000002, 0x12), Ok(()));
     assert_eq!(memory.read_u16(0x80000001), Ok(0x1234));
@@ -109,7 +109,7 @@ fn mem_wr_u16_test() {
 
 #[test]
 fn mem_wr_u32_test() {
-    let mut memory = Memory::new();
+    let mut memory = Memory::new(16);
     assert_eq!(memory.wbyte(0x80000000, 0x78), Ok(()));
     assert_eq!(memory.wbyte(0x80000001, 0x56), Ok(()));
     assert_eq!(memory.wbyte(0x80000002, 0x34), Ok(()));

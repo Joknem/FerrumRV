@@ -9,10 +9,10 @@ pub(crate) struct Memory {
 }
 
 impl Memory {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(size: usize) -> Self {
         Self {
             base_addr: 0x80000000,
-            bytes: vec![0; 16],
+            bytes: vec![0; size],
         }
     }
     fn rbyte(&self, addr: u32) -> Result<u8, AddrError> {
