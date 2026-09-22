@@ -3,12 +3,19 @@
 - 更新日期：2026-09-22
 - Teaching Mode：ON
 - 当前 Phase：A
-- 当前 Chapter：4
-- 当前 Milestone：4.3 — EBREAK / halt
+- 当前 Chapter：5
+- 当前 Milestone：5.1 — BEQ
 - 已通过 milestone：0.1、0.2、1.1、1.2、2.1、2.2、3.1、3.2、3.3、4.1、4.2、4.3
-- 当前状态：Chapter 4 验收通过；十二个测试及格式检查通过，无警告。
-- 当前待验收项：本章无；待学生提交。Chapter 5 尚未解锁。
-- 下一目标：提交 Chapter 4；之后开始 Chapter 5 控制流。
+- 当前状态：BEQ 的 B-type 解码与 taken/not-taken 执行已完成；十四个测试及格式检查通过，无警告。
+- 当前待验收项：5.1 章末解释与提交；JAL/JALR 尚未开始。
+- 下一目标：完成 5.1 解释（分支为何容易产生 PC bug），再开始 5.2 JAL。
+
+## Milestone 5.1 学习记录
+
+- PASS：Inst::BEQ 保存 rs1/rs2 和有符号 B-type 偏移；解码重组 imm[12|10:5|11|4:1|0] 并符号扩展，执行按相等选择 PC+imm 或 PC+4。
+- Tested：正偏移、负偏移、taken、not-taken、x0 比较、错误 funct3、有限步数循环；直接立即数测试覆盖 16 和 -8。程序最终寄存器、halted=true、PC=init_pc+48 均验证，十四个测试和格式检查通过。
+- Debuggable：曾使用无限 while 运行循环，已改为 100 步上限并断言 halted；补充最终 PC 防止错误跳转被寄存器结果掩盖。`get_btype_imm` 命名已修正。
+- 当前边界：只支持 BEQ，尚未实现 BNE 或其他分支；PC 对齐与偏移合法性仍由当前测试/调用约定保证。
 
 ## Milestone 4.3 学习记录
 

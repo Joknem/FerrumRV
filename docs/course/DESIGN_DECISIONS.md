@@ -94,6 +94,15 @@
 - Reason: 当前尚未实现 trap、privilege 或调试环境；协议仍能让算术程序可靠停机并保留触发地址。
 - Trade-off: 后续实现异常系统时必须把 EBREAK 从直接停机改为请求 trap，并重新定义 step 与运行循环的接口。
 
+## Milestone 5.1：BEQ 的 PC 相对分支
+
+- Decision: BEQ 使用 B-type 分散立即数，taken 时 PC=当前 PC+有符号偏移，not-taken 时 PC=当前 PC+4。
+- Context: 算术指令统一顺序加4；分支第一次改变下一条指令地址。
+- Options: 先统一 PC+4 再覆盖；或在分支执行中选择唯一目标。
+- Choice: 在 BEQ 执行分支中直接选择 wrapping_add(imm) 或 wrapping_add(4)；解码检查 opcode=0x63、funct3=000。
+- Reason: 避免 PC 被更新两次；偏移是相对当前指令地址，B-type 最低位固定为0，解码后保存 i32。
+- Trade-off: 当前只支持 BEQ，分支目标对齐与范围没有单独 guest 异常；运行测试设置步数上限防止错误回跳造成 host 无限循环。
+
 ## 后续决策模板
 
 - Decision:

@@ -6,6 +6,7 @@ use crate::{
 const FUNCT3_ADDI: u32 = 0b000;
 const FUNCT3_ADD: u32 = 0b000;
 const FUNCT3_SUB: u32 = 0b000;
+const FUNCT3_BEQ: u32 = 0b000;
 
 //I-type
 const OPCODE_OP_IMM: u32 = 0b001_0011;
@@ -15,6 +16,9 @@ const OPCODE_SYSTEM: u32 = 0b111_0011;
 const OPCODE_OP: u32 = 0b011_0011;
 const FUNCT7_ADD: u32 = 0b000_0000;
 const FUNCT7_SUB: u32 = 0b010_0000;
+
+//B-type
+const OPCODE_BR: u32 = 0b110_0011;
 
 pub struct Cpu {
     regs: [u32; 32],
@@ -64,6 +68,13 @@ impl Cpu {
                 let cal_value = rs1_value.wrapping_sub(rs2_value);
                 self.wreg(rd as usize, cal_value);
                 self.pc = self.pc.wrapping_add(4);
+            }
+            Inst::BEQ { rs1, rs2, imm } => {
+                if self.rreg(rs1 as usize) == self.rreg(rs2 as usize) {
+                    self.pc = self.pc.wrapping_add(imm as u32);
+                } else {
+                    self.pc = self.pc.wrapping_add(4);
+                }
             }
             EBREAK => {
                 self.halted = true;
@@ -131,9 +142,27 @@ fn decode(raw: u32) -> Result<Inst, DecodeError> {
             0x00002000 => Ok(Inst::EBREAK),
             _ => Err(DecodeError::UnsupportedInst { raw }),
         }
+    } else if opcode == OPCODE_BR {
+        let funct3 = (raw >> 12) & 0x00000007;
+        let rs1 = ((raw >> 15) & 0x0000001f) as u8;
+        let rs2 = ((raw >> 20) & 0x0000001f) as u8;
+        let imm = get_btype_imm(raw);
+        match funct3 {
+            FUNCT3_BEQ => Ok(Inst::BEQ { rs1, rs2, imm }),
+            _ => Err(DecodeError::UnsupportedInst { raw }),
+        }
     } else {
         Err(DecodeError::UnsupportedInst { raw })
     }
+}
+
+fn get_btype_imm(raw: u32) -> i32 {
+    let imm = (((raw & 0x80000000)
+        | ((raw & 0x00000080) << 23)
+        | ((raw & 0x7e000000) >> 1)
+        | ((raw & 0x00000f00) << 12)) as i32)
+        >> 19;
+    return imm;
 }
 
 #[derive(Debug, PartialEq)]
@@ -142,6 +171,7 @@ enum Inst {
     Add { rs1: u8, rs2: u8, rd: u8 },
     SUB { rs1: u8, rs2: u8, rd: u8 },
     EBREAK,
+    BEQ { rs1: u8, rs2: u8, imm: i32 },
 }
 
 #[derive(Debug, PartialEq)]
