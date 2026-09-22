@@ -3,6 +3,7 @@ use super::Inst;
 use super::decode;
 use super::{DecodeError, StepError};
 use crate::cpu::get_btype_imm;
+use crate::cpu::get_jal_imm;
 use crate::memory::{AddrError, Memory};
 
 #[test]
@@ -407,9 +408,11 @@ fn ebreak_test() {
 }
 
 #[test]
-fn get_btype_imm_test() {
+fn get_imm_test() {
     assert_eq!(get_btype_imm(0x00628863), 16);
     assert_eq!(get_btype_imm(0xFE418CE3), -8);
+    assert_eq!(get_jal_imm(0xFC1FF0EF), -64);
+    assert_eq!(get_jal_imm(0x010000EF), 16);
 }
 
 #[test]
@@ -451,4 +454,35 @@ fn beq_test() {
     assert_eq!(cpu.rreg(7), 1);
     assert_eq!(cpu.rreg(8), 2);
     assert_eq!(cpu.pc, init_pc + 48);
+}
+
+#[test]
+fn jal_test() {
+    let init_pc = 0x80000000;
+    let mut cpu = Cpu::new(init_pc);
+    let mut mem = Memory::new(256);
+    let test_prog: [u32; 13] = [
+        0x00100093, 0x008002EF, 0x00A08093, 0x00108093, 0x00000113, 0x00110113, 0x00110463,
+        0xFF9FF36F, 0x00900193, 0x0080006F, 0x06300193, 0x00700213, 0x00100073,
+    ];
+    for i in 0..13 {
+        assert_eq!(
+            mem.write_word(init_pc + 4 * i, test_prog[i as usize]),
+            Ok(())
+        );
+    }
+    for _ in 0..100 {
+        assert_eq!(cpu.step(&mem), Ok(()));
+        if cpu.halted {
+            break;
+        }
+    }
+    assert_eq!(cpu.halted, true);
+    assert_eq!(cpu.rreg(1), 2);
+    assert_eq!(cpu.rreg(2), 2);
+    assert_eq!(cpu.rreg(3), 9);
+    assert_eq!(cpu.rreg(4), 7);
+    assert_eq!(cpu.rreg(5), 0x80000008);
+    assert_eq!(cpu.rreg(6), 0x80000020);
+    assert_eq!(cpu.pc, 0x80000030);
 }

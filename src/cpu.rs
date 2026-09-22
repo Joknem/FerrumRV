@@ -20,6 +20,10 @@ const FUNCT7_SUB: u32 = 0b010_0000;
 //B-type
 const OPCODE_BR: u32 = 0b110_0011;
 
+//J-type
+const OPCODE_JAL: u32 = 0b110_1111;
+// const OPCODE_JALR: u32 = 0b110_0111;
+
 pub struct Cpu {
     regs: [u32; 32],
     pc: u32,
@@ -75,6 +79,10 @@ impl Cpu {
                 } else {
                     self.pc = self.pc.wrapping_add(4);
                 }
+            }
+            Inst::JAL { rd, imm } => {
+                self.wreg(rd as usize, self.pc.wrapping_add(4));
+                self.pc = self.pc.wrapping_add(imm as u32);
             }
             EBREAK => {
                 self.halted = true;
@@ -151,6 +159,10 @@ fn decode(raw: u32) -> Result<Inst, DecodeError> {
             FUNCT3_BEQ => Ok(Inst::BEQ { rs1, rs2, imm }),
             _ => Err(DecodeError::UnsupportedInst { raw }),
         }
+    } else if opcode == OPCODE_JAL {
+        let rd = ((raw >> 7) & 0x0000001f) as u8;
+        let imm = get_jal_imm(raw);
+        Ok(Inst::JAL { rd, imm })
     } else {
         Err(DecodeError::UnsupportedInst { raw })
     }
@@ -165,13 +177,23 @@ fn get_btype_imm(raw: u32) -> i32 {
     return imm;
 }
 
+fn get_jal_imm(raw: u32) -> i32 {
+    let imm = (((raw & 0x80000000)
+        | ((raw & 0x000ff000) << 11)
+        | ((raw & 0x00100000) << 2)
+        | ((raw & 0x7fe00000) >> 9)) as i32)
+        >> 11;
+    return imm;
+}
+
 #[derive(Debug, PartialEq)]
 enum Inst {
     Addi { rs1: u8, imm: i32, rd: u8 },
     Add { rs1: u8, rs2: u8, rd: u8 },
     SUB { rs1: u8, rs2: u8, rd: u8 },
-    EBREAK,
     BEQ { rs1: u8, rs2: u8, imm: i32 },
+    JAL { rd: u8, imm: i32 },
+    EBREAK,
 }
 
 #[derive(Debug, PartialEq)]
