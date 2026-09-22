@@ -337,3 +337,70 @@ fn add_sub_test() {
     assert_eq!(cpu1.rreg(3), 10);
     assert_eq!(cpu1.rreg(0), 0);
 }
+
+#[test]
+fn ebreak_test() {
+    let init_pc = 0x80000000;
+    let mut cpu = Cpu::new(init_pc);
+    let mut mem = Memory::new(256);
+    assert_eq!(mem.write_word(init_pc, 0x00a00093), Ok(()));
+    assert_eq!(mem.write_word(init_pc + 4, 0x00300113), Ok(()));
+    assert_eq!(mem.write_word(init_pc + 8, 0x002081b3), Ok(()));
+    assert_eq!(mem.write_word(init_pc + 12, 0x402181b3), Ok(()));
+    assert_eq!(mem.write_word(init_pc + 16, 0x00100073), Ok(()));
+    assert_eq!(mem.write_word(init_pc + 20, 0x402181b3), Ok(()));
+    for _ in 0..10 {
+        assert_eq!(cpu.step(&mem), Ok(()));
+        if cpu.halted == true {
+            break;
+        };
+    }
+    assert_eq!(mem.write_word(init_pc + 16, 0x402181b3), Ok(()));
+    let saved_regs = cpu.regs;
+    let saved_pc = cpu.pc;
+    let saved_halted = cpu.halted;
+    assert_eq!(cpu.step(&mem), Ok(()));
+    assert_eq!(saved_halted, cpu.halted);
+    assert_eq!(saved_pc, cpu.pc);
+    assert_eq!(saved_regs, cpu.regs);
+
+    assert_eq!(cpu.rreg(3), 10);
+    assert_eq!(cpu.rreg(2), 3);
+    assert_eq!(cpu.rreg(1), 10);
+    assert_eq!(cpu.pc, init_pc + 16);
+    assert_eq!(cpu.halted, true);
+
+    let mut cpu1 = Cpu::new(init_pc + 40);
+    assert_eq!(mem.write_word(init_pc + 40, 0x00000073), Ok(()));
+    assert_eq!(
+        cpu1.step(&mem),
+        Err(StepError::Decode {
+            pc: init_pc + 40,
+            decode_error: DecodeError::UnsupportedInst { raw: 0x00000073 }
+        })
+    );
+    assert_eq!(mem.write_word(init_pc + 40, 0x001000f3), Ok(()));
+    assert_eq!(
+        cpu1.step(&mem),
+        Err(StepError::Decode {
+            pc: init_pc + 40,
+            decode_error: DecodeError::UnsupportedInst { raw: 0x001000f3 }
+        })
+    );
+    assert_eq!(mem.write_word(init_pc + 40, 0x00108073), Ok(()));
+    assert_eq!(
+        cpu1.step(&mem),
+        Err(StepError::Decode {
+            pc: init_pc + 40,
+            decode_error: DecodeError::UnsupportedInst { raw: 0x00108073 }
+        })
+    );
+    assert_eq!(mem.write_word(init_pc + 40, 0x00101073), Ok(()));
+    assert_eq!(
+        cpu1.step(&mem),
+        Err(StepError::Decode {
+            pc: init_pc + 40,
+            decode_error: DecodeError::UnsupportedInst { raw: 0x00101073 }
+        })
+    );
+}

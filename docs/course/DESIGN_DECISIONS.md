@@ -85,6 +85,15 @@
 - Reason: 保持旧测试有效，独立控制新测试容量；寄存器存储32位位模式，SUB 无需将寄存器改为有符号类型。
 - Trade-off: 当前约定容量非零且映射不跨地址空间末端；尚未把这些前提转换为构造错误检查。不支持的 OP 编码返回错误，不能保留 todo! 导致 host panic。
 
+## Milestone 4.3：教学停止协议
+
+- Decision: 当前模拟器将完整编码 `0x00100073` 解码为 EBREAK；执行时设置 halted=true，PC 保留在 EBREAK 地址；停止后 step 返回 Ok(()) 且不取指。
+- Context: 真实 RISC-V EBREAK 向执行环境请求断点处理，通常进入调试/异常路径，不等同于关闭 CPU。
+- Options: 建模断点异常；或第一版直接提供可观察的 host 停止状态。
+- Choice: 先采用 halted 简化协议，并明确它不是完整 ISA 异常语义。
+- Reason: 当前尚未实现 trap、privilege 或调试环境；协议仍能让算术程序可靠停机并保留触发地址。
+- Trade-off: 后续实现异常系统时必须把 EBREAK 从直接停机改为请求 trap，并重新定义 step 与运行循环的接口。
+
 ## 后续决策模板
 
 - Decision:

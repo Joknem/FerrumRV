@@ -1,4 +1,7 @@
-use crate::memory::{AddrError, Memory};
+use crate::{
+    cpu::Inst::EBREAK,
+    memory::{AddrError, Memory},
+};
 
 const FUNCT3_ADDI: u32 = 0b000;
 const FUNCT3_ADD: u32 = 0b000;
@@ -6,6 +9,7 @@ const FUNCT3_SUB: u32 = 0b000;
 
 //I-type
 const OPCODE_OP_IMM: u32 = 0b001_0011;
+const OPCODE_SYSTEM: u32 = 0b111_0011;
 
 //R-type
 const OPCODE_OP: u32 = 0b011_0011;
@@ -61,29 +65,36 @@ impl Cpu {
                 self.wreg(rd as usize, cal_value);
                 self.pc = self.pc.wrapping_add(4);
             }
+            EBREAK => {
+                self.halted = true;
+            }
         }
     }
     fn step(&mut self, mem: &Memory) -> Result<(), StepError> {
-        let fetched_raw = match self.fetch(mem) {
-            Ok(value) => value,
-            Err(err) => {
-                return Err(StepError::Fetch {
-                    pc: self.pc,
-                    addr_error: err,
-                });
-            }
-        };
-        let inst = match decode(fetched_raw) {
-            Ok(value) => value,
-            Err(err) => {
-                return Err(StepError::Decode {
-                    pc: self.pc,
-                    decode_error: err,
-                });
-            }
-        };
-        self.execute(inst);
-        Ok(())
+        if self.halted {
+            Ok(())
+        } else {
+            let fetched_raw = match self.fetch(mem) {
+                Ok(value) => value,
+                Err(err) => {
+                    return Err(StepError::Fetch {
+                        pc: self.pc,
+                        addr_error: err,
+                    });
+                }
+            };
+            let inst = match decode(fetched_raw) {
+                Ok(value) => value,
+                Err(err) => {
+                    return Err(StepError::Decode {
+                        pc: self.pc,
+                        decode_error: err,
+                    });
+                }
+            };
+            self.execute(inst);
+            Ok(())
+        }
     }
 }
 
@@ -114,6 +125,12 @@ fn decode(raw: u32) -> Result<Inst, DecodeError> {
             [FUNCT7_SUB, FUNCT3_SUB] => Ok(Inst::SUB { rs1, rs2, rd }),
             _ => Err(DecodeError::UnsupportedInst { raw }),
         }
+    } else if opcode == OPCODE_SYSTEM {
+        //ECALL and EBREAK
+        match raw >> 7 {
+            0x00002000 => Ok(Inst::EBREAK),
+            _ => Err(DecodeError::UnsupportedInst { raw }),
+        }
     } else {
         Err(DecodeError::UnsupportedInst { raw })
     }
@@ -124,6 +141,7 @@ enum Inst {
     Addi { rs1: u8, imm: i32, rd: u8 },
     Add { rs1: u8, rs2: u8, rd: u8 },
     SUB { rs1: u8, rs2: u8, rd: u8 },
+    EBREAK,
 }
 
 #[derive(Debug, PartialEq)]
