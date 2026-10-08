@@ -15,7 +15,7 @@ impl Memory {
             bytes: vec![0; size],
         }
     }
-    fn rbyte(&self, addr: u32) -> Result<u8, AddrError> {
+    pub(crate) fn rbyte(&self, addr: u32) -> Result<u8, AddrError> {
         if addr < self.base_addr {
             return Err(AddrError::InvalidRange {
                 start_addr: addr,
