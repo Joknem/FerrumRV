@@ -32,7 +32,7 @@ impl Memory {
         }
         Ok(self.bytes[offset])
     }
-    fn wbyte(&mut self, waddr: u32, wvalue: u8) -> Result<(), AddrError> {
+    pub(crate) fn wbyte(&mut self, waddr: u32, wvalue: u8) -> Result<(), AddrError> {
         if waddr < self.base_addr {
             return Err(AddrError::InvalidRange {
                 start_addr: waddr,
@@ -50,7 +50,7 @@ impl Memory {
         self.bytes[offset] = wvalue;
         Ok(())
     }
-    fn read_u16(&self, raddr: u32) -> Result<u16, AddrError> {
+    pub(crate) fn read_u16(&self, raddr: u32) -> Result<u16, AddrError> {
         let low_8 = match self.rbyte(raddr) {
             Ok(value) => value as u16,
             Err(_) => {
@@ -72,7 +72,7 @@ impl Memory {
         let ret = high_8 << 8 | low_8;
         Ok(ret)
     }
-    fn write_u16(&mut self, waddr: u32, value: u16) -> Result<(), AddrError> {
+    pub(crate) fn write_u16(&mut self, waddr: u32, value: u16) -> Result<(), AddrError> {
         let high_8 = (value >> 8) as u8;
         let low_8 = (value & 0x00ff) as u8;
         let next = match waddr.checked_add(1) {

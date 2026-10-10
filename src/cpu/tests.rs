@@ -64,13 +64,13 @@ fn fetch_test() {
 
 #[test]
 fn inst_test() {
-    let addi = Inst::Addi {
+    let addi = Inst::ADDI {
         rs1: 6,
         imm: -3,
         rd: 5,
     };
     match addi {
-        Inst::Addi { rs1, imm, rd } => {
+        Inst::ADDI { rs1, imm, rd } => {
             assert_eq!(rs1, 6);
             assert_eq!(imm, -3);
             assert_eq!(rd, 5);
@@ -79,7 +79,7 @@ fn inst_test() {
     }
     assert_eq!(
         decode(0x00330293),
-        Ok(Inst::Addi {
+        Ok(Inst::ADDI {
             rs1: 6,
             imm: 3,
             rd: 5
@@ -90,12 +90,12 @@ fn inst_test() {
         Err(DecodeError::UnsupportedInst { raw: 0x00330280 })
     );
     assert_eq!(
-        decode(0x00331293),
-        Err(DecodeError::UnsupportedInst { raw: 0x00331293 })
+        decode(0x20335293),
+        Err(DecodeError::UnsupportedInst { raw: 0x20335293 })
     );
     assert_eq!(
         decode(0x000f8013),
-        Ok(Inst::Addi {
+        Ok(Inst::ADDI {
             rs1: 31,
             imm: 0,
             rd: 0
@@ -103,7 +103,7 @@ fn inst_test() {
     );
     assert_eq!(
         decode(0x7ff00f93),
-        Ok(Inst::Addi {
+        Ok(Inst::ADDI {
             rs1: 0,
             imm: 2047,
             rd: 31
@@ -112,7 +112,7 @@ fn inst_test() {
     println!("{:?}", decode(0x7ff00f93));
     assert_eq!(
         decode(0xffd30293),
-        Ok(Inst::Addi {
+        Ok(Inst::ADDI {
             rs1: 6,
             imm: -3,
             rd: 5
@@ -120,7 +120,7 @@ fn inst_test() {
     );
     assert_eq!(
         decode(0xfff30293),
-        Ok(Inst::Addi {
+        Ok(Inst::ADDI {
             rs1: 6,
             imm: -1,
             rd: 5
@@ -128,7 +128,7 @@ fn inst_test() {
     );
     assert_eq!(
         decode(0x80030293),
-        Ok(Inst::Addi {
+        Ok(Inst::ADDI {
             rs1: 6,
             imm: -2048,
             rd: 5
@@ -140,7 +140,7 @@ fn execute_test() {
     let mut mem = Memory::new(16);
     let mut cpu = Cpu::new(0x80000000);
     cpu.wreg(6, 10);
-    let inst = Inst::Addi {
+    let inst = Inst::ADDI {
         rs1: 6,
         imm: -3,
         rd: 5,
@@ -153,7 +153,7 @@ fn execute_test() {
 
     let mut cpu1 = Cpu::new(0x80000000);
     cpu1.wreg(6, 0xffffffff);
-    let inst = Inst::Addi {
+    let inst = Inst::ADDI {
         rs1: 6,
         imm: 1,
         rd: 6,
@@ -164,7 +164,7 @@ fn execute_test() {
 
     let mut cpu2 = Cpu::new(0x80000000);
     cpu2.wreg(6, 0);
-    let inst = Inst::Addi {
+    let inst = Inst::ADDI {
         rs1: 6,
         imm: -1,
         rd: 5,
@@ -175,7 +175,7 @@ fn execute_test() {
 
     let mut cpu3 = Cpu::new(0xfffffffc);
     cpu3.wreg(6, 10);
-    let inst = Inst::Addi {
+    let inst = Inst::ADDI {
         rs1: 6,
         imm: 1,
         rd: 0,
@@ -305,12 +305,12 @@ fn add_sub_test() {
     assert_eq!(cpu.step(&mut mem), Ok(()));
     assert_eq!(cpu.rreg(5), 0xffffffff);
 
-    assert_eq!(mem.write_word(init_pc + 32, 0x007312b3), Ok(()));
+    assert_eq!(mem.write_word(init_pc + 32, 0x027312b3), Ok(()));
     assert_eq!(
         cpu.step(&mut mem),
         Err(StepError::Decode {
             pc: init_pc + 32,
-            decode_error: DecodeError::UnsupportedInst { raw: 0x007312b3 }
+            decode_error: DecodeError::UnsupportedInst { raw: 0x027312b3 }
         })
     );
 
@@ -421,12 +421,12 @@ fn beq_test() {
     let init_pc = 0x80000000;
     let mut cpu = Cpu::new(init_pc);
     let mut mem = Memory::new(256);
-    assert_eq!(mem.write_word(init_pc, 0x0020c463), Ok(()));
+    assert_eq!(mem.write_word(init_pc, 0x0020a463), Ok(()));
     assert_eq!(
         cpu.step(&mut mem),
         Err(StepError::Decode {
             pc: init_pc,
-            decode_error: DecodeError::UnsupportedInst { raw: 0x0020c463 }
+            decode_error: DecodeError::UnsupportedInst { raw: 0x0020a463 }
         })
     );
     let test_prog: [u32; 13] = [
@@ -639,6 +639,15 @@ fn sw_test() {
     assert_eq!(cpu.pc, 0x80000008);
 
     cpu.wreg(6, 0x80000100);
+    //保存内存快照
+    let mut test_mem: Vec<u8> = Vec::new();
+    for offset in 0..256u32 {
+        let addr = 0x80000000 + offset;
+        match mem.rbyte(addr) {
+            Ok(value) => test_mem.push(value),
+            Err(error) => panic!("snapshot failed:{:?}", error),
+        }
+    }
     let test_regs = cpu.regs;
     assert_eq!(
         cpu.step(&mut mem),
@@ -653,6 +662,16 @@ fn sw_test() {
     assert_eq!(cpu.pc, 0x80000008);
     assert_eq!(cpu.halted, false);
     assert_eq!(cpu.regs, test_regs);
+    //检查越界后内存
+    let mut after: Vec<u8> = Vec::new();
+    for offset in 0..256u32 {
+        let addr = 0x80000000 + offset;
+        match mem.rbyte(addr) {
+            Ok(value) => after.push(value),
+            Err(error) => panic!("snapshot failed:{:?}", error),
+        }
+    }
+    assert_eq!(test_mem, after);
 
     cpu.wreg(10, 0x33333333);
     cpu.wreg(6, 0x80000040);
@@ -660,12 +679,586 @@ fn sw_test() {
     assert_eq!(cpu.step(&mut mem), Ok(()));
     assert_eq!(mem.read_word(0x80000040 - 4), Ok(0x33333333));
 
-    assert_eq!(mem.write_word(0x8000000c, 0x00531023), Ok(()));
+    assert_eq!(mem.write_word(0x8000000c, 0x00534023), Ok(()));
     assert_eq!(
         cpu.step(&mut mem),
         Err(StepError::Decode {
             pc: 0x8000000c,
-            decode_error: DecodeError::UnsupportedInst { raw: 0x00531023 }
+            decode_error: DecodeError::UnsupportedInst { raw: 0x00534023 }
         })
     );
+}
+
+#[test]
+fn lb_test() {
+    let mut cpu = Cpu::new(0x80000000);
+    let mut mem = Memory::new(256);
+    assert_eq!(mem.write_word(0x80000020, 0x1122337f), Ok(()));
+    cpu.wreg(6, 0x80000020);
+    assert_eq!(mem.write_word(0x80000000, 0x00030283), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x0000007f);
+    assert_eq!(cpu.pc, 0x80000004);
+    assert_eq!(cpu.halted, false);
+
+    cpu.wreg(6, 0x80000021);
+    assert_eq!(mem.write_word(0x80000020, 0x11223380), Ok(()));
+    //lb x5, -1(x6)
+    assert_eq!(mem.write_word(0x80000004, 0xfff30283), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xffffff80);
+    assert_eq!(cpu.pc, 0x80000008);
+    assert_eq!(cpu.halted, false);
+
+    cpu.wreg(6, 0x80000020);
+    assert_eq!(mem.write_word(0x80000020, 0x112233ff), Ok(()));
+    assert_eq!(mem.write_word(0x80000008, 0x00030003), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(0), 0);
+    assert_eq!(cpu.pc, 0x8000000c);
+    assert_eq!(cpu.halted, false);
+
+    assert_eq!(mem.write_word(0x80000020, 0x112233ff), Ok(()));
+    assert_eq!(mem.write_word(0x8000000c, 0x00030283), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xffffffff);
+    assert_eq!(cpu.pc, 0x80000010);
+    assert_eq!(cpu.halted, false);
+
+    cpu.wreg(6, 0x80000100);
+    let test_regs = cpu.regs;
+    // lb x5, 0(x6)
+    assert_eq!(mem.write_word(0x80000010, 0x00030283), Ok(()));
+    assert_eq!(
+        cpu.step(&mut mem),
+        Err(StepError::Execute {
+            pc: 0x80000010,
+            addr_error: AddrError::InvalidRange {
+                start_addr: 0x80000100,
+                length: 1
+            }
+        })
+    );
+    assert_eq!(cpu.pc, 0x80000010);
+    assert_eq!(cpu.halted, false);
+    assert_eq!(cpu.regs, test_regs);
+}
+
+#[test]
+fn load_test() {
+    let start_pc = 0x80000000;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, start_pc + 40);
+    assert_eq!(mem.write_word(start_pc + 40, 0x112280ff), Ok(()));
+    //lbu x5, 0(x6)
+    assert_eq!(mem.write_word(start_pc, 0x00034283), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x000000ff);
+    assert_eq!(cpu.pc, start_pc + 4);
+    //lh x5, 0(x6)
+    assert_eq!(mem.write_word(start_pc + 4, 0x00031283), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xffff80ff);
+    //lhu x5, 0(x6)
+    assert_eq!(mem.write_word(start_pc + 8, 0x00035283), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x000080ff);
+    //lbu x5, -1(x6)
+    assert_eq!(mem.write_word(0x80000040, 0x112280ff), Ok(()));
+    cpu.wreg(6, 0x80000041);
+    assert_eq!(mem.write_word(start_pc + 12, 0xfff34283), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x000000ff);
+    assert_eq!(cpu.pc, start_pc + 16);
+    //lh x5, -2(x6)
+    cpu.wreg(6, 0x80000042);
+    assert_eq!(mem.write_word(start_pc + 16, 0xffe31283), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xffff80ff);
+    assert_eq!(cpu.pc, start_pc + 20);
+    //lhu x5, -2(x6)
+    cpu.wreg(6, 0x80000042);
+    assert_eq!(mem.write_word(start_pc + 20, 0xffe35283), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x000080ff);
+    assert_eq!(cpu.pc, start_pc + 24);
+
+    //lbu x5, 0(x6)
+    cpu.wreg(6, 0x80000100);
+    assert_eq!(mem.write_word(start_pc + 24, 0x00034283), Ok(()));
+    assert_eq!(
+        cpu.step(&mut mem),
+        Err(StepError::Execute {
+            pc: start_pc + 24,
+            addr_error: AddrError::InvalidRange {
+                start_addr: 0x80000100,
+                length: 1
+            }
+        })
+    );
+    assert_eq!(cpu.pc, start_pc + 24);
+    assert_eq!(cpu.halted, false);
+
+    //lh x5, 0(x6)
+    assert_eq!(mem.write_word(start_pc + 24, 0x00031283), Ok(()));
+    assert_eq!(
+        cpu.step(&mut mem),
+        Err(StepError::Execute {
+            pc: start_pc + 24,
+            addr_error: AddrError::InvalidRange {
+                start_addr: 0x80000100,
+                length: 2
+            }
+        })
+    );
+    assert_eq!(cpu.pc, start_pc + 24);
+    assert_eq!(cpu.halted, false);
+
+    //lhu x5, 0(x6)
+    assert_eq!(mem.write_word(start_pc + 24, 0x00035283), Ok(()));
+    assert_eq!(
+        cpu.step(&mut mem),
+        Err(StepError::Execute {
+            pc: start_pc + 24,
+            addr_error: AddrError::InvalidRange {
+                start_addr: 0x80000100,
+                length: 2
+            }
+        })
+    );
+    assert_eq!(cpu.pc, start_pc + 24);
+    assert_eq!(cpu.halted, false);
+}
+
+#[test]
+fn store_test() {
+    let start_pc = 0x80000000;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(5, 0x12345678);
+    cpu.wreg(6, start_pc + 40);
+    //sb x5, 0(x6)
+    assert_eq!(mem.write_word(start_pc, 0x00530023), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(mem.rbyte(start_pc + 40), Ok(0x78));
+    assert_eq!(mem.read_word(start_pc + 40), Ok(0x00000078));
+
+    //sh x5, 0(x6)
+    assert_eq!(mem.write_word(start_pc + 4, 0x00531023), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(mem.read_u16(start_pc + 40), Ok(0x5678));
+    assert_eq!(mem.read_word(start_pc + 40), Ok(0x00005678));
+}
+
+#[test]
+fn teacher_load_widths_and_extensions() {
+    let start_pc = 0x80000000;
+    let data_addr = start_pc + 40;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+
+    // The low halfword is 0x80ff in little-endian memory.
+    assert_eq!(mem.write_word(data_addr, 0x112280ff), Ok(()));
+    cpu.wreg(6, data_addr);
+
+    // LBU zero-extends one byte.
+    assert_eq!(mem.write_word(start_pc, 0x00034283), Ok(())); // lbu x5, 0(x6)
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x000000ff);
+
+    // LH sign-extends two bytes.
+    assert_eq!(mem.write_word(start_pc + 4, 0x00031283), Ok(())); // lh x5, 0(x6)
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xffff80ff);
+
+    // LHU zero-extends the same two bytes.
+    assert_eq!(mem.write_word(start_pc + 8, 0x00035283), Ok(())); // lhu x5, 0(x6)
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x000080ff);
+}
+
+#[test]
+fn teacher_store_widths_and_truncation() {
+    let start_pc = 0x80000000;
+    let data_addr = start_pc + 40;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(5, 0x12345678);
+    cpu.wreg(6, data_addr);
+
+    // SB stores only the low byte and leaves the following bytes unchanged.
+    assert_eq!(mem.write_word(start_pc, 0x00530023), Ok(())); // sb x5, 0(x6)
+    assert_eq!(mem.write_word(data_addr, 0xaabbccdd), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(mem.read_word(data_addr), Ok(0xaabbcc78));
+
+    // SH stores only the low halfword in little-endian order.
+    assert_eq!(mem.write_word(start_pc + 4, 0x00531023), Ok(())); // sh x5, 0(x6)
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(mem.read_word(data_addr), Ok(0xaabb5678));
+}
+
+#[test]
+fn teacher_halfword_load_error_preserves_state() {
+    let start_pc = 0x80000000;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(5, 0x12345678);
+    cpu.wreg(6, 0x80000100);
+    let saved_regs = cpu.regs;
+
+    // A halfword load must report length 2 and must not update CPU state.
+    assert_eq!(mem.write_word(start_pc, 0x00031283), Ok(())); // lh x5, 0(x6)
+    assert_eq!(
+        cpu.step(&mut mem),
+        Err(StepError::Execute {
+            pc: start_pc,
+            addr_error: AddrError::InvalidRange {
+                start_addr: 0x80000100,
+                length: 2,
+            },
+        })
+    );
+    assert_eq!(cpu.regs, saved_regs);
+    assert_eq!(cpu.pc, start_pc);
+    assert!(!cpu.halted);
+}
+
+#[test]
+fn teacher_halfword_store_error_preserves_memory() {
+    let start_pc = 0x80000000;
+    let data_addr = start_pc + 40;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(5, 0x12345678);
+    cpu.wreg(6, 0x80000100);
+    let saved_regs = cpu.regs;
+    assert_eq!(mem.write_word(data_addr, 0xaabbccdd), Ok(()));
+
+    // A failed SH must report length 2 and leave valid memory untouched.
+    assert_eq!(mem.write_word(start_pc, 0x00531023), Ok(())); // sh x5, 0(x6)
+    assert_eq!(
+        cpu.step(&mut mem),
+        Err(StepError::Execute {
+            pc: start_pc,
+            addr_error: AddrError::InvalidRange {
+                start_addr: 0x80000100,
+                length: 2,
+            },
+        })
+    );
+    assert_eq!(mem.read_word(data_addr), Ok(0xaabbccdd));
+    assert_eq!(cpu.regs, saved_regs);
+    assert_eq!(cpu.pc, start_pc);
+    assert!(!cpu.halted);
+}
+
+#[test]
+fn integer_rr_test() {
+    let start_pc = 0x80000000;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 0x11010101);
+    cpu.wreg(7, 0x10101010);
+    //and x5, x6, x7
+    assert_eq!(mem.write_word(start_pc, 0x007372b3), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x10000000);
+    //or x5, x6, x7
+    assert_eq!(mem.write_word(start_pc + 4, 0x007362b3), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x11111111);
+    //xor x5, x6, x7
+    assert_eq!(mem.write_word(start_pc + 8, 0x007342b3), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x01111111);
+    //slt x5, x6, x7
+    assert_eq!(mem.write_word(start_pc + 12, 0x007322b3), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0);
+    //slt x5, x6, x7
+    cpu.wreg(6, 0x10010101);
+    cpu.wreg(7, 0x10101010);
+    assert_eq!(mem.write_word(start_pc + 16, 0x007322b3), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 1);
+    //slt x5, x6, x7
+    cpu.wreg(6, 0xffffffff);
+    cpu.wreg(7, 1);
+    assert_eq!(mem.write_word(start_pc + 20, 0x007322b3), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 1);
+    //sltu x5, x6, x7
+    cpu.wreg(6, 0xffffffff);
+    cpu.wreg(7, 1);
+    assert_eq!(mem.write_word(start_pc + 24, 0x007332b3), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0);
+}
+
+#[test]
+fn integer_ir_test() {
+    let start_pc = 0x80000000;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    // let data_addr = start_pc + 80;
+    cpu.wreg(6, 0x000001af);
+    //andi x5, x6, 0x0f0
+    assert_eq!(mem.write_word(start_pc, 0x0f037293), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x000000a0);
+    //ori x5, x6, 0x0f0
+    assert_eq!(mem.write_word(start_pc + 4, 0x0f036293), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x000001ff);
+    //xori x5, x6, 0x0f0
+    assert_eq!(mem.write_word(start_pc + 8, 0x0f034293), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x0000015f);
+    //slti x5, x6, -1
+    assert_eq!(mem.write_word(start_pc + 12, 0xfff32293), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0);
+    //sltiu x5, x6, -1
+    assert_eq!(mem.write_word(start_pc + 16, 0xfff33293), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 1);
+}
+
+#[test]
+fn teacher_logic_and_signed_unsigned_compare() {
+    let start_pc = 0x80000000;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+
+    cpu.wreg(6, 0xffffffff);
+    cpu.wreg(7, 1);
+
+    // Signed comparison sees -1 as smaller than 1.
+    assert_eq!(mem.write_word(start_pc, 0x007322b3), Ok(())); // slt x5, x6, x7
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 1);
+
+    // Unsigned comparison sees 0xffffffff as larger than 1.
+    assert_eq!(mem.write_word(start_pc + 4, 0x007332b3), Ok(())); // sltu x5, x6, x7
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0);
+
+    // Logical operations use the complete 32-bit register value.
+    cpu.wreg(6, 0xf0f00ff0);
+    cpu.wreg(7, 0x0ff0f00f);
+    assert_eq!(mem.write_word(start_pc + 8, 0x007372b3), Ok(())); // and x5, x6, x7
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x00f00000);
+    assert_eq!(mem.write_word(start_pc + 12, 0x007362b3), Ok(())); // or x5, x6, x7
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xfff0ffff);
+    assert_eq!(mem.write_word(start_pc + 16, 0x007342b3), Ok(())); // xor x5, x6, x7
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xff00ffff);
+}
+
+#[test]
+fn teacher_immediate_logic_compare_and_x0() {
+    let start_pc = 0x80000000;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 0);
+
+    // The logical immediate instructions use the sign-extended immediate.
+    assert_eq!(mem.write_word(start_pc, 0x0f037293), Ok(())); // andi x5, x6, 0x0f0
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0);
+    assert_eq!(mem.write_word(start_pc + 4, 0x0f036293), Ok(())); // ori x5, x6, 0x0f0
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xf0);
+    assert_eq!(mem.write_word(start_pc + 8, 0x0f034293), Ok(())); // xori x5, x6, 0x0f0
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xf0);
+
+    // With x6 = 0 and immediate -1, signed and unsigned comparisons differ.
+    assert_eq!(mem.write_word(start_pc + 12, 0xfff32293), Ok(())); // slti x5, x6, -1
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0);
+    assert_eq!(mem.write_word(start_pc + 16, 0xfff33293), Ok(())); // sltiu x5, x6, -1
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 1);
+
+    // The destination x0 remains zero while the instruction still advances PC.
+    assert_eq!(mem.write_word(start_pc + 20, 0x0f037013), Ok(())); // andi x0, x6, 0x0f0
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(0), 0);
+    assert_eq!(cpu.pc, start_pc + 24);
+}
+
+#[test]
+fn shift_test() {
+    let start_pc = 0x80000000;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 1);
+    cpu.wreg(7, 28);
+    //sll x5, x6, x7
+    assert_eq!(mem.write_word(start_pc, 0x007312b3), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x10000000);
+
+    cpu.wreg(6, 0x80000000);
+    cpu.wreg(7, 31);
+    //srl x5, x6, x7
+    assert_eq!(mem.write_word(start_pc + 4, 0x007352b3), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x00000001);
+    //sra x5, x6, x7
+    assert_eq!(mem.write_word(start_pc + 8, 0x407352b3), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xffffffff);
+    //slli x5, x6, 7
+    cpu.wreg(6, 1);
+    assert_eq!(mem.write_word(start_pc + 12, 0x00731293), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x00000080);
+    //srli x5, x6, 7
+    cpu.wreg(6, 0x00000080);
+    assert_eq!(mem.write_word(start_pc + 16, 0x00735293), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x00000001);
+    //srai x5, x6, 7
+    cpu.wreg(6, 0x80000000);
+    assert_eq!(mem.write_word(start_pc + 20, 0x40735293), Ok(()));
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xff000000);
+}
+
+#[test]
+fn teacher_shift_signedness_and_amount_mask() {
+    let start_pc = 0x80000000;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+
+    // The same negative bit pattern has different logical and arithmetic right shifts.
+    cpu.wreg(6, 0x80000000);
+    cpu.wreg(7, 1);
+    assert_eq!(mem.write_word(start_pc, 0x007352b3), Ok(())); // srl x5, x6, x7
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x40000000);
+    assert_eq!(mem.write_word(start_pc + 4, 0x407352b3), Ok(())); // sra x5, x6, x7
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xc0000000);
+
+    // Register shifts use only the low five bits of rs2.
+    cpu.wreg(6, 1);
+    cpu.wreg(7, 32);
+    assert_eq!(mem.write_word(start_pc + 8, 0x007312b3), Ok(())); // sll x5, x6, x7
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 1);
+}
+
+#[test]
+fn teacher_immediate_shifts_and_decode_guard() {
+    let start_pc = 0x80000000;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 0x80000001);
+
+    assert_eq!(mem.write_word(start_pc, 0x00731293), Ok(())); // slli x5, x6, 7
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x00000080);
+    assert_eq!(mem.write_word(start_pc + 4, 0x00735293), Ok(())); // srli x5, x6, 7
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x01000000);
+    assert_eq!(mem.write_word(start_pc + 8, 0x40735293), Ok(())); // srai x5, x6, 7
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0xff000000);
+
+    // funct3=101 with an unsupported upper immediate is not SRLI or SRAI.
+    assert_eq!(
+        decode(0x20735293),
+        Err(DecodeError::UnsupportedInst { raw: 0x20735293 })
+    );
+}
+
+#[test]
+fn teacher_branch_conditions_and_offsets() {
+    let start_pc = 0x80000000;
+
+    // BNE is taken when the operands differ and falls through when equal.
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 1);
+    cpu.wreg(7, 2);
+    assert_eq!(mem.write_word(start_pc, 0x00731463), Ok(())); // bne x6, x7, +8
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.pc, start_pc + 8);
+
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 1);
+    cpu.wreg(7, 1);
+    assert_eq!(mem.write_word(start_pc, 0x00731463), Ok(())); // bne x6, x7, +8
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.pc, start_pc + 4);
+
+    // BLT/BGE use signed comparison: -1 is smaller than 1.
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 0xffffffff);
+    cpu.wreg(7, 1);
+    assert_eq!(mem.write_word(start_pc, 0x00734463), Ok(())); // blt x6, x7, +8
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.pc, start_pc + 8);
+
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 0xffffffff);
+    cpu.wreg(7, 1);
+    assert_eq!(mem.write_word(start_pc, 0x00735463), Ok(())); // bge x6, x7, +8
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.pc, start_pc + 4);
+
+    // BLTU/BGEU use unsigned comparison: 0xffffffff is larger than 1.
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 0xffffffff);
+    cpu.wreg(7, 1);
+    assert_eq!(mem.write_word(start_pc, 0x00736463), Ok(())); // bltu x6, x7, +8
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.pc, start_pc + 4);
+
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 0xffffffff);
+    cpu.wreg(7, 1);
+    assert_eq!(mem.write_word(start_pc, 0x00737463), Ok(())); // bgeu x6, x7, +8
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.pc, start_pc + 8);
+
+    // A negative branch offset returns from start_pc + 8 to start_pc.
+    let mut cpu = Cpu::new(start_pc + 8);
+    let mut mem = Memory::new(256);
+    cpu.wreg(6, 1);
+    cpu.wreg(7, 2);
+    assert_eq!(mem.write_word(start_pc + 8, 0xfe731ce3), Ok(())); // bne x6, x7, -8
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.pc, start_pc);
+}
+
+#[test]
+fn teacher_upper_immediates() {
+    let start_pc = 0x80000000;
+    let mut cpu = Cpu::new(start_pc);
+    let mut mem = Memory::new(256);
+
+    // LUI places the immediate in bits 31:12 and clears the low 12 bits.
+    assert_eq!(mem.write_word(start_pc, 0x123452b7), Ok(())); // lui x5, 0x12345
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), 0x12345000);
+    assert_eq!(cpu.pc, start_pc + 4);
+
+    // AUIPC adds the shifted immediate to the old PC, then advances PC.
+    assert_eq!(mem.write_word(start_pc + 4, 0x12345297), Ok(())); // auipc x5, 0x12345
+    assert_eq!(cpu.step(&mut mem), Ok(()));
+    assert_eq!(cpu.rreg(5), (start_pc + 4).wrapping_add(0x12345000));
+    assert_eq!(cpu.pc, start_pc + 8);
 }
