@@ -90,6 +90,12 @@ impl Cpu {
             halted: false,
         }
     }
+    pub(crate) fn get_pc(&self) -> u32 {
+        return self.pc;
+    }
+    pub(crate) fn get_halted(&self) -> bool {
+        return self.halted;
+    }
     pub fn rreg(&self, number: usize) -> u32 {
         self.regs[number]
     }
@@ -441,7 +447,7 @@ impl Cpu {
             }
         }
     }
-    fn step(&mut self, mem: &mut Memory) -> Result<(), StepError> {
+    pub(crate) fn step(&mut self, mem: &mut Memory) -> Result<(), StepError> {
         if self.halted {
             Ok(())
         } else {
@@ -678,12 +684,12 @@ enum Inst {
 }
 
 #[derive(Debug, PartialEq)]
-enum DecodeError {
+pub(crate) enum DecodeError {
     UnsupportedInst { raw: u32 },
 }
 
 #[derive(Debug, PartialEq)]
-enum StepError {
+pub(crate) enum StepError {
     Fetch { pc: u32, addr_error: AddrError },
     Decode { pc: u32, decode_error: DecodeError },
     Execute { pc: u32, addr_error: AddrError },

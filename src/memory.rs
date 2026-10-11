@@ -15,6 +15,9 @@ impl Memory {
             bytes: vec![0; size],
         }
     }
+    // pub(crate) fn get_size() -> u32 {
+    //     todo!()
+    // }
     pub(crate) fn rbyte(&self, addr: u32) -> Result<u8, AddrError> {
         if addr < self.base_addr {
             return Err(AddrError::InvalidRange {
